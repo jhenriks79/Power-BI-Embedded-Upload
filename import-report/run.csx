@@ -17,7 +17,7 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
     {
         // Validate the request
         var reqBody = await ValidateAndCreateRequestAsync(req, RequestType.Import);
-        log.Info($"Request validated with the following body: {JsonConvert.SerializeObject(reqBody)}");
+        log.Info($"Request validated with the following body: {JsonConvert.SerializeObject(reqBody, Formatting.Indented)}");
 
         // Import the report and update the username/password
         var result = await ImportReportAndUpdateAsync(req, reqBody);

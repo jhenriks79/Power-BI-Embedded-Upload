@@ -17,7 +17,7 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
     {
         // Validate the request
         var reqBody = await ValidateAndCreateRequestAsync(req, RequestType.Create);
-        log.Info($"Request validated with the following body: {JsonConvert.SerializeObject(reqBody)}");
+        log.Info($"Request validated with the following body: {JsonConvert.SerializeObject(reqBody, Formatting.Indented)}");
 
         // Create the workspace
         reqBody.WorkspaceId = await PostWorkspaceAsync(reqBody.AppKey, reqBody.CollectionName);
