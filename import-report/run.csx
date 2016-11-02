@@ -30,7 +30,7 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
         log.Info($"HttpRequestException: {exc}");
         return req.CreateResponse(HttpStatusCode.BadRequest, exc.Message);
     }
-    catch (Exception)
+    catch (Exception exc)
     {
         log.Info($"Exception: {exc}");
         return req.CreateResponse(HttpStatusCode.BadRequest);
