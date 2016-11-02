@@ -1,3 +1,4 @@
+#r "Newtonsoft.Json"
 #load "./models.csx"
 
 using System;
@@ -6,7 +7,6 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 using Newtonsoft.Json;
 using static System.String;
 
@@ -15,7 +15,7 @@ public static async Task<GatewayDataSource> GetGatewayDataSource(string appKey, 
     using (var client = GetHttpClient(appKey))
     {
         var response = await client.GetAsync($"https://api.powerbi.com/v1.0/collections/{collectionName}/workspaces/{workspaceId}/datasets/{datasetId}/GetBoundGatewayDatasources");
-        if (!response.IsSuccessStatusCode) throw new HttpParseException($"{response.StatusCode} - {response.ReasonPhrase}");
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"{response.StatusCode} - {response.ReasonPhrase}");
 
         var result = await response.Content.ReadAsStringAsync();
         var jsonResult = JsonConvert.DeserializeObject<GatewayDataSource>(result);
@@ -36,7 +36,7 @@ public static async Task<string> GetRequestContentAsync(MultipartMemoryStreamPro
 {
     var content = multipartFormData.Contents.FirstOrDefault(x => x.Headers.ContentDisposition.Name.Contains(key));
 
-    if (content == null) throw new HttpParseException($"{key} missing from request body.");
+    if (content == null) throw new HttpRequestException($"{key} missing from request body.");
 
     return await content.ReadAsStringAsync();
 }
@@ -46,7 +46,7 @@ public static async Task<PbixImport> GetUploadStatusAsync(string appKey, string 
     using (var client = GetHttpClient(appKey))
     {
         var response = await client.GetAsync($"https://api.powerbi.com/v1.0/collections/{collectionName}/workspaces/{workspaceId}/imports/{uploadRequestId}");
-        if (!response.IsSuccessStatusCode) throw new HttpParseException($"{response.StatusCode} - {response.ReasonPhrase}");
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"{response.StatusCode} - {response.ReasonPhrase}");
 
         var result = await response.Content.ReadAsStringAsync();
         var jsonResult = JsonConvert.DeserializeObject<PbixImport>(result);
@@ -79,11 +79,11 @@ public static async Task<HttpResponseMessage> ImportReportAndUpdateAsync(HttpReq
         Thread.Sleep(2500);
     }
 
-    if (pbixImport == null) throw new HttpParseException("Failed to import PBIX file");
-    if (!pbixImport.ImportState.Equals("Succeeded", StringComparison.OrdinalIgnoreCase)) throw new HttpParseException($"Invalid PBIX Import state - {pbixImport.ImportState}");
+    if (pbixImport == null) throw new HttpRequestException("Failed to import PBIX file");
+    if (!pbixImport.ImportState.Equals("Succeeded", StringComparison.OrdinalIgnoreCase)) throw new HttpRequestException($"Invalid PBIX Import state - {pbixImport.ImportState}");
     ;
     var dataset = pbixImport.Datasets.FirstOrDefault(x => x.Name.Equals(reqBody.DatasetName, StringComparison.OrdinalIgnoreCase));
-    if (dataset == null) throw new HttpParseException("Failed to create dataset");
+    if (dataset == null) throw new HttpRequestException("Failed to create dataset");
 
     // Get the data source gateway
     var gatewayDataSource = await GetGatewayDataSource(reqBody.AppKey, reqBody.CollectionName, reqBody.WorkspaceId, dataset.Id);
@@ -123,7 +123,7 @@ public static async Task<string> PostPbixAsync(HttpRequestMessage req, string ap
         var content = new MultipartFormDataContent {new ByteArrayContent(fileBytes)};
 
         var response = await client.PostAsync($"https://api.powerbi.com/v1.0/collections/{collectionName}/workspaces/{workspaceId}/imports?datasetDisplayName={datasetName}", content);
-        if (!response.IsSuccessStatusCode) throw new HttpParseException($"{response.StatusCode} - {response.ReasonPhrase}");
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"{response.StatusCode} - {response.ReasonPhrase}");
 
         var result = await response.Content.ReadAsStringAsync();
         var jsonResult = JsonConvert.DeserializeObject<dynamic>(result);
@@ -131,7 +131,7 @@ public static async Task<string> PostPbixAsync(HttpRequestMessage req, string ap
         if (jsonResult.id != null) return jsonResult.id;
     }
 
-    throw new HttpParseException("Unknown");
+    throw new HttpRequestException("Unknown");
 }
 
 public static async Task<string> PostWorkspaceAsync(string appKey, string collectionName)
@@ -141,7 +141,7 @@ public static async Task<string> PostWorkspaceAsync(string appKey, string collec
         var content = new StringContent(Empty);
 
         var response = await client.PostAsync($"https://api.powerbi.com/v1.0/collections/{collectionName}/workspaces", content);
-        if (!response.IsSuccessStatusCode) throw new HttpParseException($"{response.StatusCode} - {response.ReasonPhrase}");
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"{response.StatusCode} - {response.ReasonPhrase}");
 
         var result = await response.Content.ReadAsStringAsync();
         var jsonResult = JsonConvert.DeserializeObject<dynamic>(result);
@@ -149,12 +149,12 @@ public static async Task<string> PostWorkspaceAsync(string appKey, string collec
         if (jsonResult.workspaceId != null) return jsonResult.workspaceId;
     }
 
-    throw new HttpParseException("Unknown");
+    throw new HttpRequestException("Unknown");
 }
 
 public static async Task<ReqBody> ValidateAndCreateRequestAsync(HttpRequestMessage req, RequestType reqType)
 {
-    if (!req.Content.Headers.ContentType.MediaType.ToLower().Contains("multipart/form-data")) throw new HttpParseException("Invalid content-type. Content-Type should be 'multipart/form-data'");
+    if (!req.Content.Headers.ContentType.MediaType.ToLower().Contains("multipart/form-data")) throw new HttpRequestException("Invalid content-type. Content-Type should be 'multipart/form-data'");
 
     // Parse query parameters
     var appKey = req.GetQueryNameValuePairs().FirstOrDefault(q => Compare(q.Key, "appKey", StringComparison.OrdinalIgnoreCase) == 0).Value;
@@ -174,23 +174,23 @@ public static async Task<ReqBody> ValidateAndCreateRequestAsync(HttpRequestMessa
     password = password ?? await GetRequestContentAsync(multipartFormData, "password");
 
     var fileContent = multipartFormData.Contents.FirstOrDefault(x => !IsNullOrWhiteSpace(x.Headers.ContentDisposition.FileName));
-    if (fileContent == null) throw new HttpParseException("File content missing from body.");
+    if (fileContent == null) throw new HttpRequestException("File content missing from body.");
 
     var fileBytes = await fileContent.ReadAsByteArrayAsync();
 
     // Check for required parameters
-    if (appKey == null) throw new HttpParseException($"{nameof(appKey)} is required. Pass {nameof(appKey)} on the query string or in the request body");
-    if (collectionName == null) throw new HttpParseException($"{nameof(collectionName)} is required. Pass {nameof(collectionName)} on the query string or in the request body");
-    if (datasetName == null) throw new HttpParseException($"{nameof(datasetName)} is required. Pass {nameof(datasetName)} on the query string or in the request body");
-    if (username == null) throw new HttpParseException($"{nameof(username)} is required. Pass {nameof(username)} on the query string or in the request body");
-    if (password == null) throw new HttpParseException($"{nameof(password)} is required. Pass {nameof(password)} on the query string or in the request body");
+    if (appKey == null) throw new HttpRequestException($"{nameof(appKey)} is required. Pass {nameof(appKey)} on the query string or in the request body");
+    if (collectionName == null) throw new HttpRequestException($"{nameof(collectionName)} is required. Pass {nameof(collectionName)} on the query string or in the request body");
+    if (datasetName == null) throw new HttpRequestException($"{nameof(datasetName)} is required. Pass {nameof(datasetName)} on the query string or in the request body");
+    if (username == null) throw new HttpRequestException($"{nameof(username)} is required. Pass {nameof(username)} on the query string or in the request body");
+    if (password == null) throw new HttpRequestException($"{nameof(password)} is required. Pass {nameof(password)} on the query string or in the request body");
 
     string workspaceId = null;
     if (reqType == RequestType.Import)
     {
         workspaceId = req.GetQueryNameValuePairs().FirstOrDefault(q => Compare(q.Key, "workspaceId", StringComparison.OrdinalIgnoreCase) == 0).Value;
         workspaceId = workspaceId ?? await GetRequestContentAsync(multipartFormData, "workspaceId");
-        if (workspaceId == null) throw new HttpParseException($"{nameof(workspaceId)} is required. Pass {nameof(workspaceId)} on the query string or in the request body");
+        if (workspaceId == null) throw new HttpRequestException($"{nameof(workspaceId)} is required. Pass {nameof(workspaceId)} on the query string or in the request body");
     }
 
     return new ReqBody

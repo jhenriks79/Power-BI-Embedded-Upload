@@ -5,9 +5,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Web;
 using System.Web.Http;
-using Pbie.Core;
 
 public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceWriter log)
 {
@@ -26,7 +24,7 @@ public static async Task<HttpResponseMessage> Run(HttpRequestMessage req, TraceW
 
         return result;
     }
-    catch (HttpParseException exc)
+    catch (HttpRequestException exc)
     {
         return req.CreateResponse(HttpStatusCode.BadRequest, exc.Message);
     }
