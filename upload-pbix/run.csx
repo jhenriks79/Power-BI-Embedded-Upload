@@ -1,4 +1,4 @@
-#load "../core/csx"
+#load "../core/http.csx"
 #load "../core/models.csx"
 
 using System;
