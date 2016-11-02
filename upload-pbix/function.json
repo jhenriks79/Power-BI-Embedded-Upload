@@ -1,6 +1,6 @@
 {
     "disabled": false,
-    "entryPoint": "run",
+    "entryPoint": "Run",
     "bindings": [
         {
             "authLevel": "anonymous",
